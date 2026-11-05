@@ -574,4 +574,7 @@ function mineEnd(A,story){
 }
 
 home();
+/* test shortcut: open the page with #fireworks to preview the final salute */
+function fxTest(){ if(location.hash==="#fireworks"){ setTimeout(()=>salute(true),400); try{history.replaceState(null,"",location.pathname+location.search)}catch(e){} } }
+fxTest(); addEventListener("hashchange",fxTest);
 </script>
