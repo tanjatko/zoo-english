@@ -241,8 +241,9 @@ const GAMES = [
 const app = document.getElementById("app");
 const shuffle = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a; };
 const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-/* "lives" is always the verb here (/lɪvz/), never the plural of "life" */
-const fixSay = t => t.replace(/\b(L|l)ives\b/g,"$1ivs ");
+/* "live"/"lives" are always the verb here (/lɪv/, /lɪvz/), never "live music" or the plural of "life".
+   The extra space keeps the text length, so word highlighting stays in place. */
+const fixSay = t => t.replace(/\b([Ll])ive(s?)\b/g,"$1iv$2 ");
 function speak(t){ try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(fixSay(t)); u.lang="en-GB"; u.rate=.85; speechSynthesis.speak(u);}catch(e){} }
 let actx=null;
 function beep(ok){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain();
