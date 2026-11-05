@@ -104,6 +104,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .story li{margin:2px 0}
 .story b{color:var(--sign)}
 
+/* Fireworks */
+.fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+.fx-banner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:61;width:min(360px,calc(100% - 32px));
+  background:var(--surface);border:4px solid var(--accent);border-radius:24px;padding:24px 20px;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;gap:8px;animation:bannerIn .5s ease-out}
+.fx-banner .cup{font-size:80px;line-height:1;animation:pop .8s .4s 2}
+.fx-banner h2{font-size:38px;color:var(--sign)}
+.fx-banner p{margin:0 0 8px;font-size:19px;font-weight:700}
+@keyframes bannerIn{from{transform:translate(-50%,-50%) scale(.6);opacity:0}}
 /* Reading */
 .text{font-size:26px;line-height:1.75;text-align:left;max-width:34ch;width:100%;background:var(--tile);border:2px solid var(--line);border-radius:14px;padding:14px 18px}
 .text.small-text{font-size:19px;line-height:1.6;max-width:none}
@@ -250,7 +259,54 @@ function beep(ok){ try{ actx=actx||new (window.AudioContext||window.webkitAudioC
   o.type="sine"; const t=actx.currentTime; o.frequency.setValueAtTime(ok?660:220,t); if(ok)o.frequency.setValueAtTime(880,t+.09);
   g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+.3); o.connect(g).connect(actx.destination); o.start(t); o.stop(t+.32);}catch(e){} }
 function getBest(){ try{return JSON.parse(localStorage.getItem("zooBest")||"{}")}catch(e){return {}} }
-function setBest(id,n){ const b=getBest(); if(!(b[id]>=n)){b[id]=n; try{localStorage.setItem("zooBest",JSON.stringify(b))}catch(e){}} }
+const allStars = () => { const b=getBest(); return GAMES.every(g=>b[g.id]===3); };
+function setBest(id,n){
+  const wasAll=allStars(); const b=getBest();
+  if(!(b[id]>=n)){b[id]=n; try{localStorage.setItem("zooBest",JSON.stringify(b))}catch(e){}}
+  if(n===3) setTimeout(()=>salute(!wasAll && allStars()),250);
+}
+
+/* ---------- fireworks salute ---------- */
+function salute(big){
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const cv=document.createElement("canvas"); cv.className="fx"; document.body.appendChild(cv);
+  const ctx=cv.getContext("2d"), dpr=Math.min(2,devicePixelRatio||1);
+  const size=()=>{cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}; size(); addEventListener("resize",size);
+  const W=()=>innerWidth, H=()=>innerHeight;
+  const colors=["#f0a31a","#ff5d73","#3ec7ff","#6ee36a","#b07cff","#ffe14d","#ffffff"];
+  const rockets=[], sparks=[]; let launched=0; const total=reduce?0:(big?26:9), dur=big?7000:3200, t0=performance.now();
+  if(big){
+    const ban=document.createElement("div"); ban.className="fx-banner";
+    ban.innerHTML=`<div class="cup">🏆</div><h2>All stars!</h2><p>You are a Zoo English champion!</p><button class="next" id="fxok">Hooray! ✓</button>`;
+    document.body.appendChild(ban); ban.querySelector("#fxok").onclick=()=>ban.remove(); ban.querySelector("#fxok").focus();
+    speak("All stars! You are a Zoo English champion!");
+  }
+  const launch=()=>{ rockets.push({x:W()*(.15+Math.random()*.7),y:H(),vx:(Math.random()-.5)*1.5,vy:-(H()*.012+Math.random()*4+6),c:colors[Math.random()*colors.length|0]}); launched++; pop(.04); };
+  const burst=r=>{ const n=big?70:50, shape=Math.random()<.3;
+    for(let i=0;i<n;i++){ const a=Math.PI*2*i/n, s=(shape?3.2:1.5+Math.random()*3)*(big?1.3:1);
+      sparks.push({x:r.x,y:r.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,c:Math.random()<.25?"#ffffff":r.c}); }
+    pop(.09); };
+  let last=0;
+  const frame=now=>{
+    const t=now-t0;
+    if(launched<total && t-last>(big?dur*.75:dur*.55)/total){ launch(); if(big&&Math.random()<.4) launch(); last=t; }
+    ctx.clearRect(0,0,W(),H());
+    for(let i=rockets.length-1;i>=0;i--){ const r=rockets[i]; r.x+=r.vx; r.y+=r.vy; r.vy+=.18;
+      ctx.fillStyle=r.c; ctx.beginPath(); ctx.arc(r.x,r.y,3,0,7); ctx.fill();
+      if(r.vy>=-1){ burst(r); rockets.splice(i,1);} }
+    for(let i=sparks.length-1;i>=0;i--){ const s=sparks[i]; s.x+=s.vx; s.y+=s.vy; s.vy+=.05; s.vx*=.985; s.vy*=.985; s.life-=.012;
+      if(s.life<=0){sparks.splice(i,1);continue;}
+      ctx.globalAlpha=Math.max(0,s.life); ctx.fillStyle=s.c; ctx.beginPath(); ctx.arc(s.x,s.y,2.4,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    if(t<dur || rockets.length || sparks.length) requestAnimationFrame(frame);
+    else { cv.remove(); removeEventListener("resize",size); }
+  };
+  requestAnimationFrame(frame);
+}
+function pop(vol){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  const len=actx.sampleRate*.25, buf=actx.createBuffer(1,len,actx.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3);
+  const src=actx.createBufferSource(), g=actx.createGain(); g.gain.value=vol; src.buffer=buf; src.connect(g).connect(actx.destination); src.start(); }catch(e){} }
 const starStr = n => "★".repeat(n)+"☆".repeat(3-n);
 const sayBtn = t => `<button class="say" data-say="${esc(t)}" aria-label="Listen">🔊</button>`;
 app.addEventListener("click",e=>{const b=e.target.closest("[data-say]"); if(b) speak(b.dataset.say);});
